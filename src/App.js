@@ -95,33 +95,41 @@ const App = () => {
   const [error, setError] = useState(null);
   const [selectedIdea, setSelectedIdea] = useState(null);
 
-  const generate = async (isLoadMore = false) => {
-    if (!skills.trim() || !interests.trim()) {
-      setError("Isi data skill & minat kamu dulu bro!");
-      return;
-    }
+  const generate = async () => {
+    if (!skills.trim() || !interests.trim()) return;
     setLoading(true);
     setError(null);
-    const systemInstruction = `Anda adalah Ahli Strategi Produk Kreatif yang super asik, casual, dan menggunakan bahasa 'slang' kreatif Jakarta. Tugas: Berikan 3 ide produk digital (Ebook, E-course, Newsletter, Checklist, atau Tool). Judul harus sangat casual dan catchy. Format JSON: { "ideas": [{ "title", "category", "problem", "demand":number, "competition":number, "target_audience", "validation_reason" }] }`;
-    const userQuery = `Skill gue: ${skills}. Minat gue: ${interests}. Kasih 3 ide produk digital yang judulnya gokil dan validasinya tajam!`;
 
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `Berikan 3 ide produk digital kreatif untuk seseorang dengan skill ${skills} dan minat pada ${interests}. Berikan jawaban dalam format JSON murni: [{"title": "...", "desc": "...", "market": 85, "easy": 70, "profit": 90, "reason": "..."}]`
+          contents: [{
+            parts: [{
+              text: `Berikan 3 ide produk digital unik untuk skill ${skills} dan minat ${interests}. Jawaban HARUS format JSON: [{"title": "Judul", "desc": "Deskripsi", "market": 80, "easy": 70, "profit": 90, "reason": "Alasan"}]`
+            }]
           }]
-        }]
-      })
-      const result = await response.json();
-      const parsedData = JSON.parse(result.candidates[0].content.parts[0].text);
-      if (isLoadMore) { setIdeas(prev => [...prev, ...parsedData.ideas]); } 
-      else { setIdeas(parsedData.ideas); setStep('results'); }
-    } catch (err) { setError("Aduh, koneksi lagi ngadat. Klik lagi dong!"); } 
-    finally { setLoading(false); }
+        })
+      });
+
+      if (!response.ok) throw new Error('API Error');
+
+      const data = await response.json();
+      const text = data.candidates[0].content.parts[0].text;
+      
+      // Membersihkan teks dari markdown ```json jika ada
+      const cleanedText = text.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(cleanedText);
+      
+      setIdeas(parsed);
+      setStep('results');
+    } catch (err) {
+      console.error(err);
+      setError("Duh, servernya lagi penuh. Coba klik lagi ya!");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
