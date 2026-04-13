@@ -110,11 +110,12 @@ const App = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: userQuery }] }],
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          generationConfig: { responseMimeType: "application/json" }
-        })
-      });
+        contents: [{
+          parts: [{
+            text: `Berikan 3 ide produk digital kreatif untuk seseorang dengan skill ${skills} dan minat pada ${interests}. Berikan jawaban dalam format JSON murni: [{"title": "...", "desc": "...", "market": 85, "easy": 70, "profit": 90, "reason": "..."}]`
+          }]
+        }]
+      })
       const result = await response.json();
       const parsedData = JSON.parse(result.candidates[0].content.parts[0].text);
       if (isLoadMore) { setIdeas(prev => [...prev, ...parsedData.ideas]); } 
