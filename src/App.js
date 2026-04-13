@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 const apiKey = process.env.REACT_APP_GEMINI_API_KEY
-const GEMINI_MODEL = "gemini-2.0-flash"; // FIX 1: updated model
+const GEMINI_MODEL = "gemini-2.0-flash-lite";
 
 // --- KOMPONEN PENDUKUNG ---
 const MarketStat = ({ label, value, colorClass, desc }) => (
