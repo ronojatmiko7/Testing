@@ -6,7 +6,7 @@ import {
   Zap, Info 
 } from 'lucide-react';
 
-const apiKey = "AIzaSy..."; 
+const apiKey = "AIzaSyDLHGBUOsHlPVTTy2gSNMCLKjb5ccJQxmM"; 
 const GEMINI_MODEL = "gemini-1.5-flash";
 
 // --- KOMPONEN PENDUKUNG ---
