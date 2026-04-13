@@ -95,12 +95,8 @@ const App = () => {
   const [error, setError] = useState(null);
   const [selectedIdea, setSelectedIdea] = useState(null);
 
-  const generate = async (isLoadMore = false) => {
-    if (!skills.trim() || !interests.trim()) {
-      setError("Isi data skill & minat kamu dulu bro!");
-      return;
-    }
-
+  const generate = async () => {
+    if (!skills.trim() || !interests.trim()) return;
     setLoading(true);
     setError(null);
 
@@ -111,22 +107,26 @@ const App = () => {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `Anda adalah Ahli Strategi Produk Kreatif. Skill: ${skills}. Minat: ${interests}. Berikan 3 ide produk digital unik dalam format JSON murni: [{"title": "...", "desc": "...", "market": 85, "easy": 70, "profit": 90, "reason": "..."}]`
+              text: `Berikan 3 ide produk digital unik untuk skill ${skills} dan minat ${interests}. Jawaban HARUS format JSON murni: [{"title": "Judul", "desc": "Deskripsi", "market": 80, "easy": 70, "profit": 90, "reason": "Alasan"}]`
             }]
           }]
         })
       });
 
-      const result = await response.json();
-      const rawText = result.candidates[0].content.parts[0].text;
-      const cleanText = rawText.replace(/```json|```/g, "").trim();
-      const parsedData = JSON.parse(cleanText);
+      if (!response.ok) throw new Error('API Error');
 
-      if (isLoadMore) { setIdeas(prev => [...prev, ...parsedData]); }
-      else { setIdeas(parsedData); setStep('results'); }
+      const data = await response.json();
+      const text = data.candidates[0].content.parts[0].text;
+      
+      // Membersihkan teks dari markdown ```json jika ada
+      const cleanedText = text.replace(/```json|```/g, "").trim();
+      const parsedData = JSON.parse(cleanedText);
+      
+      setIdeas(parsedData); // Menggunakan parsedData agar cocok dengan state
+      setStep('results');
     } catch (err) {
       console.error(err);
-      setError("Aduh, koneksi lagi ngadat. Klik lagi dong!");
+      setError("Duh, servernya lagi penuh. Coba klik lagi ya!");
     } finally {
       setLoading(false);
     }
