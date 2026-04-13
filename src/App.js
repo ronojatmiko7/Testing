@@ -95,8 +95,12 @@ const App = () => {
   const [error, setError] = useState(null);
   const [selectedIdea, setSelectedIdea] = useState(null);
 
-  const generate = async () => {
-    if (!skills.trim() || !interests.trim()) return;
+  const generate = async (isLoadMore = false) => {
+    if (!skills.trim() || !interests.trim()) {
+      setError("Isi data skill & minat kamu dulu bro!");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -107,31 +111,27 @@ const App = () => {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `Berikan 3 ide produk digital unik untuk skill ${skills} dan minat ${interests}. Jawaban HARUS format JSON: [{"title": "Judul", "desc": "Deskripsi", "market": 80, "easy": 70, "profit": 90, "reason": "Alasan"}]`
+              text: `Anda adalah Ahli Strategi Produk Kreatif. Skill: ${skills}. Minat: ${interests}. Berikan 3 ide produk digital unik dalam format JSON murni: [{"title": "...", "desc": "...", "market": 85, "easy": 70, "profit": 90, "reason": "..."}]`
             }]
           }]
         })
       });
 
-      if (!response.ok) throw new Error('API Error');
+      const result = await response.json();
+      const rawText = result.candidates[0].content.parts[0].text;
+      const cleanText = rawText.replace(/```json|```/g, "").trim();
+      const parsedData = JSON.parse(cleanText);
 
-      const data = await response.json();
-      const text = data.candidates[0].content.parts[0].text;
-      
-      // Membersihkan teks dari markdown ```json jika ada
-      const cleanedText = text.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(cleanedText);
-      
-      setIdeas(parsed);
-      setStep('results');
+      if (isLoadMore) { setIdeas(prev => [...prev, ...parsedData]); }
+      else { setIdeas(parsedData); setStep('results'); }
     } catch (err) {
       console.error(err);
-      setError("Duh, servernya lagi penuh. Coba klik lagi ya!");
+      setError("Aduh, koneksi lagi ngadat. Klik lagi dong!");
     } finally {
       setLoading(false);
     }
   };
-
+  
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-indigo-100">
       <nav className="p-8 max-w-7xl mx-auto flex justify-between items-center">
