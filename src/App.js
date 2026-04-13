@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { 
   Rocket, Sparkles, ArrowRight, Book, Video, Mail, 
-  CheckSquare, Wrench, Copy, Check, X, Loader2, 
-  AlertCircle, RefreshCcw, TrendingUp, Users, BarChart3, 
-  Zap, Info 
+  CheckSquare, Copy, Check, X, Loader2, 
+  AlertCircle, RefreshCcw, Zap
 } from 'lucide-react';
 
-const apiKey = process.env.REACT_APP_GEMINI_API_KEY
-const GEMINI_MODEL = "gemini-2.0-flash-lite";
+const GROQ_API_KEY = process.env.REACT_APP_GROQ_API_KEY || "GANTI_DENGAN_API_KEY_GROQ_KAMU";
+const GROQ_MODEL = "llama-3.3-70b-versatile"; // Model terbaik di Groq, gratis
 
 // --- KOMPONEN PENDUKUNG ---
 const MarketStat = ({ label, value, colorClass, desc }) => (
@@ -31,9 +30,9 @@ const PromptModal = ({ idea, onClose }) => {
 
   const getDynamicPrompt = (idea) => {
     const category = idea.category.toLowerCase();
-    const baseInfo = `Saya ingin membuat produk digital berjudul "${idea.title}". Masalah yang diselesaikan: ${idea.problem}. Target audience: ${idea.target_audience}. Tolong buatkan draf konten lengkap untuk produk ini dalam Bahasa Indonesia:`;
+    const baseInfo = `Saya ingin membuat produk digital berjudul "${idea.title}". Deskripsi: ${idea.desc}. Tolong buatkan draf konten lengkap untuk produk ini dalam Bahasa Indonesia:`;
 
-    if (category.includes('book')) {
+    if (category.includes('ebook')) {
       return `${baseInfo}\n1. Buatkan struktur 12 bab Ebook yang sistematis.\n2. Tuliskan draf isi Bab 1 secara mendalam.\n3. Berikan poin-poin kunci untuk setiap bab selanjutnya.\n4. Di setiap akhir bab, buatkan bagian "Tugas Praktis".\n5. Gunakan gaya bahasa naratif yang menginspirasi.`;
     } 
     if (category.includes('course')) {
@@ -101,50 +100,63 @@ const App = () => {
     setError(null);
 
     try {
-      // FIX 2: changed /v1/ to /v1beta/
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+        },
         body: JSON.stringify({
-          contents: [{
-            parts: [{
-              // FIX 3: updated JSON schema to match UI fields
-              text: `Berikan 3 ide produk digital unik untuk skill "${skills}" dan minat "${interests}". 
-Jawaban HARUS format JSON murni tanpa markdown, tanpa penjelasan, hanya array JSON:
+          model: GROQ_MODEL,
+          max_tokens: 1024,
+          temperature: 0.7,
+          messages: [
+            {
+              role: 'system',
+              content: 'Kamu adalah konsultan produk digital untuk pasar Indonesia. Selalu jawab HANYA dengan JSON murni, tanpa markdown, tanpa penjelasan tambahan.'
+            },
+            {
+              role: 'user',
+              content: `Berikan 3 ide produk digital unik untuk seseorang dengan skill "${skills}" dan minat "${interests}".
+
+Jawab HANYA dengan array JSON ini, tidak ada teks lain:
 [
   {
     "title": "Judul Produk",
     "category": "Ebook",
-    "desc": "Deskripsi singkat produk",
+    "desc": "Deskripsi singkat 1-2 kalimat",
     "demand": 8,
     "competition": 4,
-    "validation_reason": "Alasan mengapa ide ini tervalidasi pasar"
+    "validation_reason": "Alasan konkret mengapa ide ini punya pasar yang jelas di Indonesia"
   }
 ]
-Nilai demand dan competition adalah angka 1-10. category harus salah satu dari: Ebook, Course, Checklist, Newsletter, Tool.`
-            }]
-          }]
+
+Aturan:
+- category harus salah satu: Ebook, Course, Checklist, Newsletter, Tool
+- demand dan competition adalah angka 1-10
+- Buat ide yang spesifik dan realistis untuk pasar Indonesia`
+            }
+          ]
         })
       });
 
       if (!response.ok) {
         const errData = await response.json();
-        console.error("API Error details:", errData);
-        throw new Error('API Error');
+        console.error("Groq API Error:", errData);
+        throw new Error(`API Error: ${errData.error?.message || response.status}`);
       }
 
       const data = await response.json();
-      const text = data.candidates[0].content.parts[0].text;
+      const text = data.choices[0].message.content;
       
-      // Membersihkan teks dari markdown ```json jika ada
       const cleanedText = text.replace(/```json|```/g, "").trim();
       const parsedData = JSON.parse(cleanedText);
       
       setIdeas(parsedData);
       setStep('results');
     } catch (err) {
-      console.error(err);
-      setError("Duh, servernya lagi penuh. Coba klik lagi ya!");
+      console.error("Error lengkap:", err);
+      setError("Aduh, ada masalah teknis. Coba klik lagi ya!");
     } finally {
       setLoading(false);
     }
@@ -187,7 +199,7 @@ Nilai demand dan competition adalah angka 1-10. category harus salah satu dari: 
                   <p className="text-sm font-black italic">{error}</p>
                 </div>
               )}
-              <button onClick={generate} disabled={loading} className="w-full py-7 bg-indigo-600 text-white rounded-[2.5rem] font-black text-xl hover:bg-indigo-700 shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3">
+              <button onClick={generate} disabled={loading} className="w-full py-7 bg-indigo-600 text-white rounded-[2.5rem] font-black text-xl hover:bg-indigo-700 shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-70">
                 {loading ? <><Loader2 className="w-7 h-7 animate-spin" /> Lagi Mikir...</> : <><Sparkles className="w-7 h-7" /> VALIDASI 3 IDE GUE!</>}
               </button>
             </div>
@@ -201,7 +213,7 @@ Nilai demand dan competition adalah angka 1-10. category harus salah satu dari: 
                 <div key={i} className="bg-white rounded-[4rem] border border-gray-100 shadow-2xl flex flex-col overflow-hidden hover:-translate-y-4 transition-all duration-500 relative">
                   <div className={`p-10 bg-gradient-to-br ${i % 3 === 0 ? 'from-indigo-600 to-indigo-900 text-white' : 'from-gray-50 to-gray-100 text-indigo-600'}`}>
                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 ${i % 3 === 0 ? 'bg-white/20' : 'bg-white shadow-xl'}`}>
-                      {idea.category?.toLowerCase().includes('book') ? <Book /> : idea.category?.toLowerCase().includes('course') ? <Video /> : idea.category?.toLowerCase().includes('news') ? <Mail /> : <CheckSquare />}
+                      {idea.category?.toLowerCase().includes('ebook') ? <Book /> : idea.category?.toLowerCase().includes('course') ? <Video /> : idea.category?.toLowerCase().includes('news') ? <Mail /> : <CheckSquare />}
                     </div>
                     <span className="text-[9px] font-black uppercase tracking-[0.4em] px-4 py-2 rounded-full bg-black/10">{idea.category}</span>
                     <h3 className="text-3xl font-black mt-4 leading-tight tracking-tight">{idea.title}</h3>
@@ -218,7 +230,7 @@ Nilai demand dan competition adalah angka 1-10. category harus salah satu dari: 
               ))}
             </div>
             <div className="mt-20 flex justify-center">
-              <button onClick={generate} disabled={loading} className="flex items-center gap-3 px-10 py-5 bg-white border-4 border-indigo-50 text-indigo-600 rounded-[2rem] font-black hover:bg-indigo-50 transition-all shadow-xl active:scale-95">
+              <button onClick={generate} disabled={loading} className="flex items-center gap-3 px-10 py-5 bg-white border-4 border-indigo-50 text-indigo-600 rounded-[2rem] font-black hover:bg-indigo-50 transition-all shadow-xl active:scale-95 disabled:opacity-70">
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCcw className="w-5 h-5" />} {loading ? "Mikir..." : "Cari Ide Lain"}
               </button>
             </div>
