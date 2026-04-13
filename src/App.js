@@ -386,7 +386,7 @@ Aturan:
             ))}
 
             <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4">
-              <button onClick={() => setStep('input')} disabled={loading} className="flex items-center justify-center gap-3 px-10 py-5 bg-indigo-600 text-white rounded-[2rem] font-black hover:bg-indigo-700 transition-all shadow-xl active:scale-95 disabled:opacity-70">
+              <button onClick={generate} disabled={loading} className="flex items-center justify-center gap-3 px-10 py-5 bg-indigo-600 text-white rounded-[2rem] font-black hover:bg-indigo-700 transition-all shadow-xl active:scale-95 disabled:opacity-70">
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCcw className="w-5 h-5" />}
                 {loading ? "Mikir..." : "Cari Ide Lain"}
               </button>
