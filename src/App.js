@@ -6,7 +6,7 @@ import {
   Zap, Info 
 } from 'lucide-react';
 
-const apiKey = process.env.REACT_APP_GEMINI_API_KEY || "AIzaSyBYJBovj7S_Upd9t5uTy7FJ327T47rr22s";
+const apiKey = process.env.REACT_APP_GEMINI_API_KEY
 const GEMINI_MODEL = "gemini-2.0-flash"; // FIX 1: updated model
 
 // --- KOMPONEN PENDUKUNG ---
