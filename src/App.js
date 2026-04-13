@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 const apiKey = "AIzaSy..."; 
-const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
+const GEMINI_MODEL = "gemini-1.5-flash";
 
 // --- KOMPONEN PENDUKUNG ---
 const MarketStat = ({ label, value, colorClass, desc }) => (
