@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Rocket, Sparkles, ArrowRight, Book, Video, Mail, 
   CheckSquare, Copy, Check, X, Loader2, 
-  AlertCircle, RefreshCcw, Zap
+  AlertCircle, RefreshCcw, Zap, History, Trash2, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 const GROQ_API_KEY = process.env.REACT_APP_GROQ_API_KEY || "GANTI_DENGAN_API_KEY_GROQ_KAMU";
-const GROQ_MODEL = "llama-3.3-70b-versatile"; // Model terbaik di Groq, gratis
+const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 // --- KOMPONEN PENDUKUNG ---
 const MarketStat = ({ label, value, colorClass, desc }) => (
@@ -31,7 +31,6 @@ const PromptModal = ({ idea, onClose }) => {
   const getDynamicPrompt = (idea) => {
     const category = idea.category.toLowerCase();
     const baseInfo = `Saya ingin membuat produk digital berjudul "${idea.title}". Deskripsi: ${idea.desc}. Tolong buatkan draf konten lengkap untuk produk ini dalam Bahasa Indonesia:`;
-
     if (category.includes('ebook')) {
       return `${baseInfo}\n1. Buatkan struktur 12 bab Ebook yang sistematis.\n2. Tuliskan draf isi Bab 1 secara mendalam.\n3. Berikan poin-poin kunci untuk setiap bab selanjutnya.\n4. Di setiap akhir bab, buatkan bagian "Tugas Praktis".\n5. Gunakan gaya bahasa naratif yang menginspirasi.`;
     } 
@@ -85,14 +84,150 @@ const PromptModal = ({ idea, onClose }) => {
   );
 };
 
+// --- HISTORY PANEL ---
+const HistoryPanel = ({ sessions, onLoadSession, onDeleteSession, onClose }) => (
+  <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+    <div className="bg-white rounded-[3rem] w-full max-w-lg max-h-[80vh] shadow-2xl overflow-hidden flex flex-col border-[8px] border-indigo-50">
+      <div className="p-8 border-b flex justify-between items-center bg-indigo-50/20">
+        <div className="flex items-center gap-3">
+          <div className="bg-indigo-600 p-3 rounded-2xl text-white shadow-lg"><History className="w-5 h-5" /></div>
+          <div>
+            <h3 className="font-black text-xl text-slate-900 leading-none uppercase tracking-tighter">Riwayat Sesi</h3>
+            <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mt-1">{sessions.length} sesi tersimpan</p>
+          </div>
+        </div>
+        <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-gray-400"><X className="w-6 h-6" /></button>
+      </div>
+      <div className="flex-grow overflow-y-auto p-6 space-y-4">
+        {sessions.length === 0 ? (
+          <div className="text-center py-16 text-gray-400">
+            <History className="w-12 h-12 mx-auto mb-4 opacity-30" />
+            <p className="font-black uppercase text-sm">Belum ada riwayat</p>
+          </div>
+        ) : (
+          sessions.map((session) => (
+            <div key={session.id} className="bg-gray-50 rounded-[2rem] p-6 border border-gray-100 hover:border-indigo-200 transition-all">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex-grow">
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">{new Date(session.id).toLocaleString('id-ID')}</p>
+                  <p className="text-xs font-black text-slate-700">Skill: <span className="text-indigo-600">{session.skills}</span></p>
+                  <p className="text-xs font-black text-slate-700">Minat: <span className="text-indigo-600">{session.interests}</span></p>
+                  <p className="text-[10px] text-gray-400 mt-1">{session.ideas.length} ide tersimpan</p>
+                </div>
+                <button onClick={() => onDeleteSession(session.id)} className="p-2 hover:bg-red-50 rounded-xl text-gray-300 hover:text-red-400 transition-all ml-2 flex-shrink-0">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+              <button onClick={() => { onLoadSession(session); onClose(); }} className="w-full py-3 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all">
+                Buka Sesi Ini
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  </div>
+);
+
+// --- IDEA BATCH (grup ide per sesi) ---
+const IdeaBatch = ({ batch, index, onSelectIdea }) => {
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+    <div className="mb-16">
+      <div className="flex items-center gap-4 mb-8">
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="flex items-center gap-3 group"
+        >
+          <div className="bg-indigo-100 text-indigo-600 px-5 py-2 rounded-full font-black text-xs uppercase tracking-widest">
+            Sesi #{index + 1}
+          </div>
+          <span className="text-[10px] text-gray-400 font-black uppercase">
+            {batch.skills} · {batch.interests}
+          </span>
+          {collapsed
+            ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 transition-colors" />
+            : <ChevronUp className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 transition-colors" />
+          }
+        </button>
+        <div className="flex-grow h-px bg-gray-100" />
+        <span className="text-[10px] text-gray-300 font-black">{new Date(batch.id).toLocaleString('id-ID')}</span>
+      </div>
+
+      {!collapsed && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+          {batch.ideas.map((idea, i) => (
+            <div key={i} className="bg-white rounded-[4rem] border border-gray-100 shadow-2xl flex flex-col overflow-hidden hover:-translate-y-4 transition-all duration-500">
+              <div className={`p-10 bg-gradient-to-br ${i % 3 === 0 ? 'from-indigo-600 to-indigo-900 text-white' : 'from-gray-50 to-gray-100 text-indigo-600'}`}>
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 ${i % 3 === 0 ? 'bg-white/20' : 'bg-white shadow-xl'}`}>
+                  {idea.category?.toLowerCase().includes('ebook') ? <Book /> : idea.category?.toLowerCase().includes('course') ? <Video /> : idea.category?.toLowerCase().includes('news') ? <Mail /> : <CheckSquare />}
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-[0.4em] px-4 py-2 rounded-full bg-black/10">{idea.category}</span>
+                <h3 className="text-3xl font-black mt-4 leading-tight tracking-tight">{idea.title}</h3>
+              </div>
+              <div className="p-10 flex-grow space-y-8">
+                <MarketStat label="Permintaan" value={idea.demand} colorClass="text-emerald-500" desc="Banyak orang cari ini." />
+                <MarketStat label="Kompetisi" value={idea.competition} colorClass="text-red-500" desc="Skor 10 = Padat saingan." />
+                <p className="text-sm text-indigo-800 italic bg-indigo-50/50 p-6 rounded-[2.5rem] border-2 border-dashed border-indigo-100">"{idea.validation_reason}"</p>
+              </div>
+              <div className="p-10 bg-gray-50 border-t">
+                <button onClick={() => onSelectIdea(idea)} className="w-full py-5 rounded-[1.8rem] font-black flex items-center justify-center gap-3 text-lg transition-all active:scale-95 shadow-xl bg-indigo-600 text-white">
+                  BUAT ISI PRODUK! <ArrowRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- MAIN APP ---
 const App = () => {
   const [step, setStep] = useState('home');
   const [skills, setSkills] = useState('');
   const [interests, setInterests] = useState('');
   const [loading, setLoading] = useState(false);
-  const [ideas, setIdeas] = useState([]);
+  const [batches, setBatches] = useState([]); // semua sesi ide, bertambah terus
   const [error, setError] = useState(null);
   const [selectedIdea, setSelectedIdea] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [sessions, setSessions] = useState([]); // history dari localStorage
+
+  // Load history dari localStorage saat pertama buka
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('ideaspark_sessions');
+      if (saved) setSessions(JSON.parse(saved));
+    } catch (e) {
+      console.error("Gagal load history:", e);
+    }
+  }, []);
+
+  const saveSession = (newSession) => {
+    try {
+      const updated = [newSession, ...sessions];
+      setSessions(updated);
+      localStorage.setItem('ideaspark_sessions', JSON.stringify(updated));
+    } catch (e) {
+      console.error("Gagal simpan history:", e);
+    }
+  };
+
+  const deleteSession = (id) => {
+    const updated = sessions.filter(s => s.id !== id);
+    setSessions(updated);
+    localStorage.setItem('ideaspark_sessions', JSON.stringify(updated));
+  };
+
+  const loadSession = (session) => {
+    setSkills(session.skills);
+    setInterests(session.interests);
+    setBatches([{ id: session.id, skills: session.skills, interests: session.interests, ideas: session.ideas }]);
+    setStep('results');
+  };
 
   const generate = async () => {
     if (!skills.trim() || !interests.trim()) return;
@@ -148,11 +283,22 @@ Aturan:
 
       const data = await response.json();
       const text = data.choices[0].message.content;
-      
       const cleanedText = text.replace(/```json|```/g, "").trim();
       const parsedData = JSON.parse(cleanedText);
-      
-      setIdeas(parsedData);
+
+      const newBatch = {
+        id: Date.now(),
+        skills,
+        interests,
+        ideas: parsedData
+      };
+
+      // Append ke batches yang sudah ada (tidak replace)
+      setBatches(prev => [...prev, newBatch]);
+
+      // Simpan ke localStorage
+      saveSession(newBatch);
+
       setStep('results');
     } catch (err) {
       console.error("Error lengkap:", err);
@@ -161,25 +307,44 @@ Aturan:
       setLoading(false);
     }
   };
+
+  const handleReset = () => {
+    setStep('home');
+    setBatches([]);
+    setSkills('');
+    setInterests('');
+    setError(null);
+  };
   
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-indigo-100">
       <nav className="p-8 max-w-7xl mx-auto flex justify-between items-center">
-        <div className="flex items-center gap-4 cursor-pointer group" onClick={() => setStep('home')}>
+        <div className="flex items-center gap-4 cursor-pointer group" onClick={handleReset}>
           <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:rotate-12 transition-transform duration-300">
             <Rocket className="text-white w-6 h-6" />
           </div>
           <span className="text-3xl font-black tracking-tighter uppercase italic">IdeaSpark</span>
         </div>
+        <button
+          onClick={() => setShowHistory(true)}
+          className="flex items-center gap-2 px-6 py-3 bg-gray-50 hover:bg-indigo-50 border border-gray-100 rounded-2xl font-black text-xs uppercase tracking-widest text-gray-500 hover:text-indigo-600 transition-all"
+        >
+          <History className="w-4 h-4" />
+          Riwayat {sessions.length > 0 && <span className="bg-indigo-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]">{sessions.length}</span>}
+        </button>
       </nav>
+
       <main className="pb-32">
         {step === 'home' && (
           <div className="flex flex-col items-center justify-center min-h-[75vh] text-center px-6">
             <h1 className="text-7xl md:text-9xl font-black text-slate-900 mb-8 tracking-tighter leading-[0.85]">Skill Kamu <br/><span className="text-indigo-600 italic">Bisa Jadi Cuan.</span></h1>
             <p className="text-xl text-slate-500 max-w-xl mb-14 font-medium italic">Temukan ide produk digital yang cuan dan tervalidasi pasar dalam hitungan detik.</p>
-            <button onClick={() => setStep('input')} className="px-14 py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-2xl hover:bg-indigo-700 transition-all shadow-2xl active:scale-95 flex items-center gap-3">MULAI SEKARANG <ArrowRight className="w-7 h-7" /></button>
+            <button onClick={() => setStep('input')} className="px-14 py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-2xl hover:bg-indigo-700 transition-all shadow-2xl active:scale-95 flex items-center gap-3">
+              MULAI SEKARANG <ArrowRight className="w-7 h-7" />
+            </button>
           </div>
         )}
+
         {step === 'input' && (
           <div className="max-w-xl mx-auto py-10 px-6">
             <button onClick={() => setStep('home')} className="mb-10 text-[10px] font-black text-gray-400 uppercase tracking-widest">← Kembali</button>
@@ -205,39 +370,40 @@ Aturan:
             </div>
           </div>
         )}
+
         {step === 'results' && (
           <div className="max-w-7xl mx-auto py-10 px-6">
-            <h2 className="text-6xl font-black mb-12 text-center tracking-tighter uppercase italic leading-none">Market Results 🔥</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-              {ideas.map((idea, i) => (
-                <div key={i} className="bg-white rounded-[4rem] border border-gray-100 shadow-2xl flex flex-col overflow-hidden hover:-translate-y-4 transition-all duration-500 relative">
-                  <div className={`p-10 bg-gradient-to-br ${i % 3 === 0 ? 'from-indigo-600 to-indigo-900 text-white' : 'from-gray-50 to-gray-100 text-indigo-600'}`}>
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 ${i % 3 === 0 ? 'bg-white/20' : 'bg-white shadow-xl'}`}>
-                      {idea.category?.toLowerCase().includes('ebook') ? <Book /> : idea.category?.toLowerCase().includes('course') ? <Video /> : idea.category?.toLowerCase().includes('news') ? <Mail /> : <CheckSquare />}
-                    </div>
-                    <span className="text-[9px] font-black uppercase tracking-[0.4em] px-4 py-2 rounded-full bg-black/10">{idea.category}</span>
-                    <h3 className="text-3xl font-black mt-4 leading-tight tracking-tight">{idea.title}</h3>
-                  </div>
-                  <div className="p-10 flex-grow space-y-8">
-                    <MarketStat label="Permintaan" value={idea.demand} colorClass="text-emerald-500" desc="Banyak orang cari ini." />
-                    <MarketStat label="Kompetisi" value={idea.competition} colorClass="text-red-500" desc="Skor 10 = Padat saingan." />
-                    <p className="text-sm text-indigo-800 italic bg-indigo-50/50 p-6 rounded-[2.5rem] border-2 border-dashed border-indigo-100">"{idea.validation_reason}"</p>
-                  </div>
-                  <div className="p-10 bg-gray-50 border-t">
-                    <button onClick={() => setSelectedIdea(idea)} className="w-full py-5 rounded-[1.8rem] font-black flex items-center justify-center gap-3 text-lg transition-all active:scale-95 shadow-xl bg-indigo-600 text-white">BUAT ISI PRODUK! <ArrowRight className="w-5 h-5" /></button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-20 flex justify-center">
-              <button onClick={generate} disabled={loading} className="flex items-center gap-3 px-10 py-5 bg-white border-4 border-indigo-50 text-indigo-600 rounded-[2rem] font-black hover:bg-indigo-50 transition-all shadow-xl active:scale-95 disabled:opacity-70">
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCcw className="w-5 h-5" />} {loading ? "Mikir..." : "Cari Ide Lain"}
+            <h2 className="text-6xl font-black mb-4 text-center tracking-tighter uppercase italic leading-none">Market Results 🔥</h2>
+            <p className="text-center text-gray-400 text-sm font-black uppercase tracking-widest mb-16">{batches.reduce((acc, b) => acc + b.ideas.length, 0)} ide terkumpul</p>
+
+            {batches.map((batch, index) => (
+              <IdeaBatch
+                key={batch.id}
+                batch={batch}
+                index={index}
+                onSelectIdea={setSelectedIdea}
+              />
+            ))}
+
+            <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4">
+              <button onClick={() => setStep('input')} disabled={loading} className="flex items-center justify-center gap-3 px-10 py-5 bg-indigo-600 text-white rounded-[2rem] font-black hover:bg-indigo-700 transition-all shadow-xl active:scale-95 disabled:opacity-70">
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCcw className="w-5 h-5" />}
+                {loading ? "Mikir..." : "Cari Ide Lain"}
               </button>
             </div>
           </div>
         )}
       </main>
+
       {selectedIdea && <PromptModal idea={selectedIdea} onClose={() => setSelectedIdea(null)} />}
+      {showHistory && (
+        <HistoryPanel
+          sessions={sessions}
+          onLoadSession={loadSession}
+          onDeleteSession={deleteSession}
+          onClose={() => setShowHistory(false)}
+        />
+      )}
     </div>
   );
 };
