@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 const apiKey = process.env.REACT_APP_GEMINI_API_KEY || "AIzaSyBYJBovj7S_Upd9t5uTy7FJ327T47rr22s";
-const GEMINI_MODEL = "gemini-1.5-flash";
+const GEMINI_MODEL = "gemini-2.0-flash"; // FIX 1: updated model
 
 // --- KOMPONEN PENDUKUNG ---
 const MarketStat = ({ label, value, colorClass, desc }) => (
@@ -101,19 +101,37 @@ const App = () => {
     setError(null);
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
+      // FIX 2: changed /v1/ to /v1beta/
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `Berikan 3 ide produk digital unik untuk skill ${skills} dan minat ${interests}. Jawaban HARUS format JSON murni: [{"title": "Judul", "desc": "Deskripsi", "market": 80, "easy": 70, "profit": 90, "reason": "Alasan"}]`
+              // FIX 3: updated JSON schema to match UI fields
+              text: `Berikan 3 ide produk digital unik untuk skill "${skills}" dan minat "${interests}". 
+Jawaban HARUS format JSON murni tanpa markdown, tanpa penjelasan, hanya array JSON:
+[
+  {
+    "title": "Judul Produk",
+    "category": "Ebook",
+    "desc": "Deskripsi singkat produk",
+    "demand": 8,
+    "competition": 4,
+    "validation_reason": "Alasan mengapa ide ini tervalidasi pasar"
+  }
+]
+Nilai demand dan competition adalah angka 1-10. category harus salah satu dari: Ebook, Course, Checklist, Newsletter, Tool.`
             }]
           }]
         })
       });
 
-      if (!response.ok) throw new Error('API Error');
+      if (!response.ok) {
+        const errData = await response.json();
+        console.error("API Error details:", errData);
+        throw new Error('API Error');
+      }
 
       const data = await response.json();
       const text = data.candidates[0].content.parts[0].text;
@@ -122,7 +140,7 @@ const App = () => {
       const cleanedText = text.replace(/```json|```/g, "").trim();
       const parsedData = JSON.parse(cleanedText);
       
-      setIdeas(parsedData); // Menggunakan parsedData agar cocok dengan state
+      setIdeas(parsedData);
       setStep('results');
     } catch (err) {
       console.error(err);
@@ -147,7 +165,7 @@ const App = () => {
           <div className="flex flex-col items-center justify-center min-h-[75vh] text-center px-6">
             <h1 className="text-7xl md:text-9xl font-black text-slate-900 mb-8 tracking-tighter leading-[0.85]">Skill Kamu <br/><span className="text-indigo-600 italic">Bisa Jadi Cuan.</span></h1>
             <p className="text-xl text-slate-500 max-w-xl mb-14 font-medium italic">Temukan ide produk digital yang cuan dan tervalidasi pasar dalam hitungan detik.</p>
-            <button onClick={() => setStep('input')} className="px-14 py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-2xl hover:bg-indigo-700 transition-all shadow-2xl active:scale-95">MULAI SEKARANG <ArrowRight className="w-7 h-7" /></button>
+            <button onClick={() => setStep('input')} className="px-14 py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-2xl hover:bg-indigo-700 transition-all shadow-2xl active:scale-95 flex items-center gap-3">MULAI SEKARANG <ArrowRight className="w-7 h-7" /></button>
           </div>
         )}
         {step === 'input' && (
@@ -163,8 +181,13 @@ const App = () => {
                 <label className="block text-[10px] font-black text-gray-400 mb-4 uppercase tracking-[0.4em]">Minat / Topik</label>
                 <textarea value={interests} onChange={(e) => setInterests(e.target.value)} className="w-full p-8 bg-white border-4 border-gray-50 rounded-[2.5rem] focus:border-indigo-600 outline-none h-40 shadow-xl text-lg font-medium resize-none" placeholder="Apa topik favoritmu?"/>
               </div>
-              {error && <div className="p-6 bg-red-50 text-red-600 rounded-[2rem] flex items-center gap-4 border-2 border-red-100"><AlertCircle className="w-6 h-6" /><p className="text-sm font-black italic">{error}</p></div>}
-              <button onClick={() => generate(false)} disabled={loading} className="w-full py-7 bg-indigo-600 text-white rounded-[2.5rem] font-black text-xl hover:bg-indigo-700 shadow-2xl transition-all active:scale-95">
+              {error && (
+                <div className="p-6 bg-red-50 text-red-600 rounded-[2rem] flex items-center gap-4 border-2 border-red-100">
+                  <AlertCircle className="w-6 h-6 flex-shrink-0" />
+                  <p className="text-sm font-black italic">{error}</p>
+                </div>
+              )}
+              <button onClick={generate} disabled={loading} className="w-full py-7 bg-indigo-600 text-white rounded-[2.5rem] font-black text-xl hover:bg-indigo-700 shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3">
                 {loading ? <><Loader2 className="w-7 h-7 animate-spin" /> Lagi Mikir...</> : <><Sparkles className="w-7 h-7" /> VALIDASI 3 IDE GUE!</>}
               </button>
             </div>
@@ -178,7 +201,7 @@ const App = () => {
                 <div key={i} className="bg-white rounded-[4rem] border border-gray-100 shadow-2xl flex flex-col overflow-hidden hover:-translate-y-4 transition-all duration-500 relative">
                   <div className={`p-10 bg-gradient-to-br ${i % 3 === 0 ? 'from-indigo-600 to-indigo-900 text-white' : 'from-gray-50 to-gray-100 text-indigo-600'}`}>
                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 ${i % 3 === 0 ? 'bg-white/20' : 'bg-white shadow-xl'}`}>
-                      {idea.category.toLowerCase().includes('book') ? <Book /> : idea.category.toLowerCase().includes('course') ? <Video /> : idea.category.toLowerCase().includes('news') ? <Mail /> : <CheckSquare />}
+                      {idea.category?.toLowerCase().includes('book') ? <Book /> : idea.category?.toLowerCase().includes('course') ? <Video /> : idea.category?.toLowerCase().includes('news') ? <Mail /> : <CheckSquare />}
                     </div>
                     <span className="text-[9px] font-black uppercase tracking-[0.4em] px-4 py-2 rounded-full bg-black/10">{idea.category}</span>
                     <h3 className="text-3xl font-black mt-4 leading-tight tracking-tight">{idea.title}</h3>
@@ -195,7 +218,7 @@ const App = () => {
               ))}
             </div>
             <div className="mt-20 flex justify-center">
-              <button onClick={() => generate(true)} disabled={loading} className="flex items-center gap-3 px-10 py-5 bg-white border-4 border-indigo-50 text-indigo-600 rounded-[2rem] font-black hover:bg-indigo-50 transition-all shadow-xl active:scale-95">
+              <button onClick={generate} disabled={loading} className="flex items-center gap-3 px-10 py-5 bg-white border-4 border-indigo-50 text-indigo-600 rounded-[2rem] font-black hover:bg-indigo-50 transition-all shadow-xl active:scale-95">
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCcw className="w-5 h-5" />} {loading ? "Mikir..." : "Cari Ide Lain"}
               </button>
             </div>
